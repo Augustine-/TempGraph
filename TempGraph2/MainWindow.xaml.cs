@@ -53,7 +53,6 @@ namespace TempGraph2
                 IsGpuEnabled = true
             };
 
-            melfina.Open();
             FindSensors();
             InitializeCharts();
             InitializeTimer();
@@ -62,23 +61,24 @@ namespace TempGraph2
 
         private void FindSensors()
         {
+            melfina.Open();
             melfina.Accept(new UpdateVisitor());
 
-            foreach (var hardware in melfina.Hardware)
+            foreach (IHardware hardware in melfina.Hardware)
             {
-                foreach (var sensor in hardware.Sensors)
+                foreach (ISensor sensor in hardware.Sensors)
                 {
                     if (sensor.SensorType == SensorType.Temperature)
                     {
                         if (hardware.HardwareType == HardwareType.Cpu && sensor.Name == "Core Average" && cpuSensor == null)
                         {
                             cpuSensor = sensor;
-                            Console.WriteLine($"Found CPU: {cpuSensor.Name} Value: {cpuSensor.Value}");
+                            Console.WriteLine($"Found CPU Sensor: {cpuSensor.Name} Value: {cpuSensor.Value}");
                         }
                         if (hardware.HardwareType == HardwareType.GpuNvidia && gpuSensor == null)
                         {
                             gpuSensor = sensor;
-                            Console.WriteLine($"Found GPU: {gpuSensor.Name}");
+                            Console.WriteLine($"Found GPU Sensor: {gpuSensor.Name} Value: {gpuSensor.Value}");
                         }
                     }
                 }
@@ -110,12 +110,9 @@ namespace TempGraph2
 
         private void CollectData(object sender, ElapsedEventArgs e)
         {
-            melfina.Accept(new UpdateVisitor());
-
             if (cpuSensor != null)
             {
                 cpuSensor.Hardware.Update();
-
                 double? cpuTemp = cpuSensor.Value;
                 Dispatcher.Invoke(() => {
                     if (cpuTemp.HasValue)
@@ -127,6 +124,7 @@ namespace TempGraph2
 
             if (gpuSensor != null)
             {
+                gpuSensor.Hardware.Update();
                 double? gpuTemp = gpuSensor.Value;
                 Dispatcher.Invoke(() => {
                     if (gpuTemp.HasValue)
