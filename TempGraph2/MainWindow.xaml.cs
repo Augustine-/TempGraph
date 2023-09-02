@@ -89,7 +89,7 @@ namespace TempGraph2
                             cpuSensor = sensor;
                             Console.WriteLine($"Found CPU Sensor: {cpuSensor.Name} Value: {cpuSensor.Value}");
                         }
-                        if (hardware.HardwareType == HardwareType.GpuNvidia && gpuSensor == null)
+                        if ((hardware.HardwareType == HardwareType.GpuNvidia || hardware.HardwareType == HardwareType.GpuAmd || hardware.HardwareType == HardwareType.GpuIntel) && gpuSensor == null)
                         {
                             gpuSensor = sensor;
                             Console.WriteLine($"Found GPU Sensor: {gpuSensor.Name} Value: {gpuSensor.Value}");
