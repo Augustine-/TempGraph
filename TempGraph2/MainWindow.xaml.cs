@@ -58,7 +58,21 @@ namespace TempGraph2
             InitializeTimer();
             DataContext = this;
         }
+        // Event Handlers
+        private void Window_Closed(object sender, EventArgs e)
+        {
+            melfina.Close();
+            timer.Dispose();
+        }
 
+        private void Window_Loaded(object sender, EventArgs e)
+        {
+            cartesianChart.AxisY.Add(new Axis
+            {
+                Title = "Temperature (C)",
+                LabelFormatter = value => value.ToString("F2")
+            });
+        }
         private void FindSensors()
         {
             melfina.Open();
@@ -91,18 +105,18 @@ namespace TempGraph2
                 new LineSeries
                 {
                     Title = "CPU Temp",
-                    Values = new ChartValues<double>()
+                    Values = new ChartValues<float>()
                 },
                 new LineSeries
                 {
                     Title = "GPU Temp",
-                    Values = new ChartValues<double>()
+                    Values = new ChartValues<float>()
                 }
             };
         }
         private void InitializeTimer()
         {
-            timer.Interval = 1000;  
+            timer.Interval = 500;  
             timer.Elapsed += CollectData;  
             timer.AutoReset = true;
             timer.Enabled = true;
@@ -117,7 +131,14 @@ namespace TempGraph2
                 Dispatcher.Invoke(() => {
                     if (cpuTemp.HasValue)
                     {
-                        Temps[0].Values.Add(cpuTemp.Value);
+                        if (cpuSensor.Values.Count() == 0)
+                        {
+                            Temps[0].Values.Add(cpuSensor.Value.Value); // The first time the loop runs, there's nothing to average yet.
+                        }
+                        else
+                        {
+                            Temps[0].Values.Add(cpuSensor.Values.Select(v => v.Value).Average());
+                        }
                     }
                 });
             }
@@ -129,10 +150,15 @@ namespace TempGraph2
                 Dispatcher.Invoke(() => {
                     if (gpuTemp.HasValue)
                     {
-                        Temps[1].Values.Add(gpuTemp.Value);
+                        Temps[1].Values.Add((float)gpuTemp.Value);
                     }
                 });
             }
+        }
+
+        private void Window_Loaded_1(object sender, RoutedEventArgs e)
+        {
+
         }
     }
 }
