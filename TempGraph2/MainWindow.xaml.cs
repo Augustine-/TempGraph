@@ -18,6 +18,7 @@ using LiveCharts.Wpf;
 using System.Diagnostics;
 using LibreHardwareMonitor.Hardware;
 using System.Management;
+using System.Threading;
 
 
 namespace TempGraph2
@@ -42,8 +43,12 @@ namespace TempGraph2
         public SeriesCollection Temps { get; set; }
         private ISensor cpuSensor;
         private ISensor gpuSensor;
-        private Timer timer = new Timer();
+        private System.Timers.Timer timer = new System.Timers.Timer();
         private Computer melfina;
+        private int timeWindowInSeconds = 0;
+        private List<float> cpuTempsMasterList = new List<float>();
+        private List<float> gpuTempsMasterList = new List<float>();
+
 
         public MainWindow()
         {
@@ -52,12 +57,66 @@ namespace TempGraph2
                 IsCpuEnabled = true,
                 IsGpuEnabled = true
             };
-
             FindSensors();
             InitializeCharts();
             InitializeTimer();
             DataContext = this;
         }
+        
+        // Event Handlers
+        private void Window_Closed(object sender, EventArgs e)
+        {
+            melfina.Close();
+            timer.Dispose();
+        }
+
+        private void Window_Loaded(object sender, EventArgs e)
+        {
+            cartesianChart.AxisY.Add(new Axis
+            {
+                Title = "Temperature (C)",
+                LabelFormatter = value => value.ToString("F2")
+            });
+        }
+
+        private void TimeWindowSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (timeWindowTextBox != null && timeWindowSlider != null) {
+                timeWindowTextBox.Text = timeWindowSlider.Value.ToString();
+                timeWindowInSeconds = (int)e.NewValue;
+                UpdateChartData();
+            }
+        }
+
+        private void TimeWindowTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (int.TryParse(timeWindowTextBox.Text, out int value))
+            {
+                timeWindowSlider.Value = value;
+            }
+            else
+            {
+                // revert to prior value on invalid input
+                timeWindowTextBox.Text = timeWindowSlider.Value.ToString();
+            }
+            UpdateChartData();
+        }
+
+        // Methods
+        private void UpdateChartData()
+        {
+            if (timeWindowInSeconds == 0) // 'All time'
+            {
+                Temps[0].Values = new ChartValues<float>(cpuTempsMasterList);
+                Temps[1].Values = new ChartValues<float>(gpuTempsMasterList);
+            }
+            else
+            {
+                Temps[0].Values = new ChartValues<float>(cpuTempsMasterList.GetRange(timeWindowInSeconds, timeWindowInSeconds));
+                Temps[1].Values = new ChartValues<float>(gpuTempsMasterList.GetRange(timeWindowInSeconds, timeWindowInSeconds));
+            }
+        }
+
 
         private void FindSensors()
         {
@@ -73,6 +132,7 @@ namespace TempGraph2
                         if (hardware.HardwareType == HardwareType.Cpu && sensor.Name == "Core Average" && cpuSensor == null)
                         {
                             cpuSensor = sensor;
+                            cpuSensor.ValuesTimeWindow = TimeSpan.FromSeconds(5);
                             Console.WriteLine($"Found CPU Sensor: {cpuSensor.Name} Value: {cpuSensor.Value}");
                         }
                         if (hardware.HardwareType == HardwareType.GpuNvidia && gpuSensor == null)
@@ -91,12 +151,12 @@ namespace TempGraph2
                 new LineSeries
                 {
                     Title = "CPU Temp",
-                    Values = new ChartValues<double>()
+                    Values = new ChartValues<float>()
                 },
                 new LineSeries
                 {
                     Title = "GPU Temp",
-                    Values = new ChartValues<double>()
+                    Values = new ChartValues<float>()
                 }
             };
         }
@@ -113,11 +173,21 @@ namespace TempGraph2
             if (cpuSensor != null)
             {
                 cpuSensor.Hardware.Update();
-                double? cpuTemp = cpuSensor.Value;
                 Dispatcher.Invoke(() => {
-                    if (cpuTemp.HasValue)
+                    if (cpuSensor.Value.HasValue)
                     {
-                        Temps[0].Values.Add(cpuTemp.Value);
+                        float cpuTemp;
+                        if (cpuSensor.Values.Any())
+                        {
+                            cpuTemp = (float)cpuSensor.Values.Select(v => v.Value).Average();
+                            Temps[0].Values.Add(cpuTemp);
+                            cpuTempsMasterList.Add(cpuTemp);
+                        }
+                        else
+                        {
+                            Temps[0].Values.Add(cpuSensor.Value.Value); // The first time the loop runs, there's nothing to average yet.
+                            cpuTempsMasterList.Add(cpuSensor.Value.Value);
+                        }
                     }
                 });
             }
@@ -125,14 +195,16 @@ namespace TempGraph2
             if (gpuSensor != null)
             {
                 gpuSensor.Hardware.Update();
-                double? gpuTemp = gpuSensor.Value;
                 Dispatcher.Invoke(() => {
-                    if (gpuTemp.HasValue)
+                    if (gpuSensor.Value.HasValue)
                     {
-                        Temps[1].Values.Add(gpuTemp.Value);
+                        float gpuTemp = (float)gpuSensor.Value.Value;
+                        gpuTempsMasterList.Add(gpuTemp); // Add to master list
+                        Temps[1].Values.Add(gpuTemp);
                     }
                 });
             }
         }
+
     }
 }

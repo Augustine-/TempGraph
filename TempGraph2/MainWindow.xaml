@@ -6,15 +6,22 @@
         xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
         xmlns:local="clr-namespace:TempGraph2"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="CPU and GPU Temperatures" Height="450" Width="800"
+        Loaded="Window_Loaded">
     <Grid>
-        <lvc:CartesianChart Series="{Binding Temps}">
+        <lvc:CartesianChart x:Name="cartesianChart" Series="{Binding Temps}" Margin="0,0,0,43">
             <lvc:CartesianChart.AxisX>
-                <lvc:Axis Title="Time" />
+                <lvc:Axis Title="Time (Seconds)" />
             </lvc:CartesianChart.AxisX>
-            <lvc:CartesianChart.AxisY>
-                <lvc:Axis Title="Temperature" />
-            </lvc:CartesianChart.AxisY>
         </lvc:CartesianChart>
+
+        <Slider x:Name="timeWindowSlider" Minimum="1" Maximum="60" Value="0" 
+                ValueChanged="TimeWindowSlider_ValueChanged" VerticalAlignment="Top" Margin="0,408,0,0"/>
+        <StackPanel Orientation="Horizontal" Margin="323,370,302,12">
+            <Label Content="Time Window (Seconds):" VerticalAlignment="Center"/>
+            <TextBox x:Name="timeWindowTextBox" Text="0" 
+             LostFocus="TimeWindowTextBox_LostFocus" VerticalAlignment="Center"
+             Margin="10,0,0,0"/>
+        </StackPanel>
     </Grid>
 </Window>
