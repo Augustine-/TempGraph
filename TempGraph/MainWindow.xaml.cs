@@ -20,7 +20,7 @@ using LibreHardwareMonitor.Hardware;
 using System.Management;
 
 
-namespace TempGraph2
+namespace TempGraph
 {
     public class UpdateVisitor : IVisitor
     {
@@ -84,7 +84,7 @@ namespace TempGraph2
                 {
                     if (sensor.SensorType == SensorType.Temperature)
                     {
-                        if (hardware.HardwareType == HardwareType.Cpu && sensor.Name == "Core Average" && cpuSensor == null)
+                        if (hardware.HardwareType == HardwareType.Cpu && sensor.Name == "Core Average")
                         {
                             cpuSensor = sensor;
                             Console.WriteLine($"Found CPU Sensor: {cpuSensor.Name} Value: {cpuSensor.Value}");
@@ -116,7 +116,7 @@ namespace TempGraph2
         }
         private void InitializeTimer()
         {
-            timer.Interval = 500;  
+            timer.Interval = 1000;  
             timer.Elapsed += CollectData;  
             timer.AutoReset = true;
             timer.Enabled = true;
@@ -127,19 +127,21 @@ namespace TempGraph2
             if (cpuSensor != null)
             {
                 cpuSensor.Hardware.Update();
-                double? cpuTemp = cpuSensor.Value;
+                cpuSensor.ValuesTimeWindow = TimeSpan.FromSeconds(5);
+
                 Dispatcher.Invoke(() => {
-                    if (cpuTemp.HasValue)
+                    if (cpuSensor.Value.HasValue)
                     {
-                        if (cpuSensor.Values.Count() == 0)
+                        if (cpuSensor.Values.Count() > 0)
                         {
-                            Temps[0].Values.Add(cpuSensor.Value.Value); // The first time the loop runs, there's nothing to average yet.
+                            Temps[0].Values.Add((float)cpuSensor.Values.Select(v => v.Value).Average());  // Average when historical data exists
                         }
                         else
                         {
-                            Temps[0].Values.Add(cpuSensor.Values.Select(v => v.Value).Average());
+                            Temps[0].Values.Add(cpuSensor.Value.Value);  // Add current value if no history
                         }
                     }
+
                 });
             }
 
@@ -154,11 +156,6 @@ namespace TempGraph2
                     }
                 });
             }
-        }
-
-        private void Window_Loaded_1(object sender, RoutedEventArgs e)
-        {
-
         }
     }
 }
