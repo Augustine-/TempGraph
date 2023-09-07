@@ -13,12 +13,12 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Timers;
-using LiveCharts;
-using LiveCharts.Wpf;
 using System.Diagnostics;
 using LibreHardwareMonitor.Hardware;
 using System.Management;
-
+using OxyPlot;
+using OxyPlot.Series;
+using OxyPlot.Axes;
 
 namespace TempGraph
 {
@@ -39,7 +39,6 @@ namespace TempGraph
 
     public partial class MainWindow : Window
     {
-        public SeriesCollection Temps { get; set; }
         private ISensor cpuSensor;
         private ISensor gpuSensor;
         private Timer timer = new Timer();
@@ -52,11 +51,10 @@ namespace TempGraph
                 IsCpuEnabled = true,
                 IsGpuEnabled = true
             };
-
+            InitializeComponent();
             FindSensors();
             InitializeCharts();
             InitializeTimer();
-            DataContext = this;
         }
         // Event Handlers
         private void Window_Closed(object sender, EventArgs e)
@@ -67,11 +65,7 @@ namespace TempGraph
 
         private void Window_Loaded(object sender, EventArgs e)
         {
-            cartesianChart.AxisY.Add(new Axis
-            {
-                Title = "Temperature (C)",
-                LabelFormatter = value => value.ToString("F2")
-            });
+
         }
         private void FindSensors()
         {
@@ -102,23 +96,18 @@ namespace TempGraph
         
         private void InitializeCharts()
         {
-            Temps = new SeriesCollection
-            {
-                new LineSeries
-                {
-                    Title = "CPU Temp",
-                    Values = new ChartValues<float>()
-                },
-                new LineSeries
-                {
-                    Title = "GPU Temp",
-                    Values = new ChartValues<float>()
-                }
-            };
+            var plotModel = new PlotModel { Title = "Temperature Data" };
+            var cpuSeries = new LineSeries { Title = "CPU" };
+            var gpuSeries = new LineSeries { Title = "GPU" };
+            plotModel.Series.Add(cpuSeries);
+            plotModel.Series.Add(gpuSeries);
+            plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Temperature (C)" });
+            plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Seconds" });
+            MainPlot.Model = plotModel;
         }
         private void InitializeTimer()
         {
-            timer.Interval = 1000;  
+            timer.Interval = 250;  
             timer.Elapsed += CollectData;  
             timer.AutoReset = true;
             timer.Enabled = true;
@@ -126,35 +115,40 @@ namespace TempGraph
 
         private void CollectData(object sender, ElapsedEventArgs e)
         {
+            double cpuTemp = 0;
+            double gpuTemp = 0;
+
             if (cpuSensor != null)
             {
                 cpuSensor.Hardware.Update();
-                Dispatcher.Invoke(() => {
-                    if (cpuSensor.Value.HasValue)
+                if (cpuSensor.Value.HasValue)
+                {
+                    if (cpuSensor.Values.Count() > 0)
                     {
-                        if (cpuSensor.Values.Count() > 0)
-                        {
-                            Temps[0].Values.Add(cpuSensor.Values.Select(v => v.Value).Average());  // average when historical data exists
-                        }
-                        else
-                        {
-                            Temps[0].Values.Add(cpuSensor.Value.Value);  // add current value if no history
-                        }
+                        cpuTemp = cpuSensor.Values.Select(v => v.Value).Average();  // average when historical data exists
                     }
-
-                });
+                    else
+                    {
+                        cpuTemp = cpuSensor.Value.Value;  // if no history
+                    }
+                }
             }
 
             if (gpuSensor != null)
             {
                 gpuSensor.Hardware.Update();
-                Dispatcher.Invoke(() => {
-                    if (gpuSensor.Value.HasValue)
-                    {
-                        Temps[1].Values.Add(gpuSensor.Value);
-                    }
-                });
+                if (gpuSensor.Value.HasValue)
+                {
+                    gpuTemp = (double)gpuSensor.Value;
+                }
             }
+
+            Dispatcher.Invoke(() => {
+                int elapsedSeconds = ((LineSeries)MainPlot.Model.Series[0]).Points.Count;
+                ((LineSeries)MainPlot.Model.Series[0]).Points.Add(new DataPoint(elapsedSeconds, cpuTemp));
+                ((LineSeries)MainPlot.Model.Series[1]).Points.Add(new DataPoint(elapsedSeconds, gpuTemp));
+                MainPlot.Model.InvalidatePlot(true);
+            });
         }
     }
 }
