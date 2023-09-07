@@ -87,6 +87,7 @@ namespace TempGraph
                         if (hardware.HardwareType == HardwareType.Cpu && sensor.Name == "Core Average")
                         {
                             cpuSensor = sensor;
+                            cpuSensor.ValuesTimeWindow = TimeSpan.FromSeconds(5);
                             Console.WriteLine($"Found CPU Sensor: {cpuSensor.Name} Value: {cpuSensor.Value}");
                         }
                         if ((hardware.HardwareType == HardwareType.GpuNvidia || hardware.HardwareType == HardwareType.GpuAmd || hardware.HardwareType == HardwareType.GpuIntel) && gpuSensor == null)
@@ -98,6 +99,7 @@ namespace TempGraph
                 }
             }
         }
+        
         private void InitializeCharts()
         {
             Temps = new SeriesCollection
@@ -127,18 +129,16 @@ namespace TempGraph
             if (cpuSensor != null)
             {
                 cpuSensor.Hardware.Update();
-                cpuSensor.ValuesTimeWindow = TimeSpan.FromSeconds(5);
-
                 Dispatcher.Invoke(() => {
                     if (cpuSensor.Value.HasValue)
                     {
                         if (cpuSensor.Values.Count() > 0)
                         {
-                            Temps[0].Values.Add((float)cpuSensor.Values.Select(v => v.Value).Average());  // Average when historical data exists
+                            Temps[0].Values.Add(cpuSensor.Values.Select(v => v.Value).Average());  // average when historical data exists
                         }
                         else
                         {
-                            Temps[0].Values.Add(cpuSensor.Value.Value);  // Add current value if no history
+                            Temps[0].Values.Add(cpuSensor.Value.Value);  // add current value if no history
                         }
                     }
 
@@ -148,11 +148,10 @@ namespace TempGraph
             if (gpuSensor != null)
             {
                 gpuSensor.Hardware.Update();
-                double? gpuTemp = gpuSensor.Value;
                 Dispatcher.Invoke(() => {
-                    if (gpuTemp.HasValue)
+                    if (gpuSensor.Value.HasValue)
                     {
-                        Temps[1].Values.Add((float)gpuTemp.Value);
+                        Temps[1].Values.Add(gpuSensor.Value);
                     }
                 });
             }
