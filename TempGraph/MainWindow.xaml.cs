@@ -107,7 +107,7 @@ namespace TempGraph
         }
         private void InitializeTimer()
         {
-            timer.Interval = 250;  
+            timer.Interval = 1000;  
             timer.Elapsed += CollectData;  
             timer.AutoReset = true;
             timer.Enabled = true;
